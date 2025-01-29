@@ -1,4 +1,4 @@
 pub mod lexer;
 pub mod parser;
 mod token;
-mod tree;
+pub mod tree;
