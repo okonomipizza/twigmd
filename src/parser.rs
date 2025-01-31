@@ -2,7 +2,7 @@ use crate::{
     lexer::lex,
     token::{Token, TokenType},
     tree::{
-        Bold, Header, Italic, LineSpan, Node, Paragraph, Positioned, Text, UnorderedList,
+        Bold, Eol, Header, Italic, LineSpan, Node, Paragraph, Positioned, Text, UnorderedList,
         Whitespace,
     },
 };
@@ -126,6 +126,16 @@ fn parse(stream: &mut TokenStream) -> Vec<Node> {
             TokenType::Text | TokenType::Whitespace | TokenType::Italic | TokenType::Bold => {
                 let node = parse_paragraph(stream);
                 nodes.push(node);
+            }
+            TokenType::Eol => {
+                let node = Node::Eol(Eol {
+                    position: LineSpan {
+                        start: token.line,
+                        end: token.line,
+                    },
+                });
+                nodes.push(node);
+                stream.next();
             }
             _ => {
                 let node = parse_paragraph(stream);
@@ -372,7 +382,7 @@ fn parse_paragraph(stream: &mut TokenStream) -> Node {
 fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
     let mut nodes: Vec<Node> = vec![];
     let mut is_closed = false;
-    let mut start: usize= 0;
+    let mut start: usize = 0;
     let mut end: usize = 0;
 
     while let Some(token) = stream.peek() {
@@ -396,13 +406,16 @@ fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
 
     if !is_closed {
         let mut italic_token_line = 0;
-        if let Some(prev_token) = stream.get(stream.index -1) {
+        if let Some(prev_token) = stream.get(stream.index - 1) {
             italic_token_line = prev_token.line;
         }
-        
+
         let italic_text_token = Node::Text(Text {
             value: "*".to_string(),
-            position: LineSpan { start: italic_token_line, end: italic_token_line },
+            position: LineSpan {
+                start: italic_token_line,
+                end: italic_token_line,
+            },
         });
         let mut new_vec = vec![italic_text_token];
         new_vec.extend(nodes);
@@ -418,14 +431,13 @@ fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
 fn parse_bold(stream: &mut TokenStream) -> Vec<Node> {
     let mut nodes: Vec<Node> = vec![];
     let mut is_closed = false;
-    let mut start: usize= 0;
+    let mut start: usize = 0;
     let mut end: usize = 0;
 
     while let Some(token) = stream.peek() {
         match token.token_type {
             TokenType::Bold => {
                 is_closed = true;
-                
             }
             TokenType::Eol => {
                 break;
@@ -443,13 +455,16 @@ fn parse_bold(stream: &mut TokenStream) -> Vec<Node> {
 
     if !is_closed {
         let mut bold_token_line = 0;
-        if let Some(prev_token) = stream.get(stream.index -1) {
+        if let Some(prev_token) = stream.get(stream.index - 1) {
             bold_token_line = prev_token.line;
         }
 
         let bold_text_token = Node::Text(Text {
             value: "**".to_string(),
-            position: LineSpan { start: bold_token_line, end: bold_token_line},
+            position: LineSpan {
+                start: bold_token_line,
+                end: bold_token_line,
+            },
         });
         let mut new_vec = vec![bold_text_token];
         new_vec.extend(nodes);
@@ -483,10 +498,40 @@ fn parse_token(token: &Token) -> Node {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tree::{Bold, Italic, LineSpan, Node, Paragraph, Text, UnorderedList, Whitespace};
+    use crate::tree::{
+        Bold, Eol, Italic, LineSpan, Node, Paragraph, Text, UnorderedList, Whitespace,
+    };
     use pretty_assertions::assert_eq;
 
     #[test]
+    fn test_break() {
+        let input = "normal\n\ntext";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Text(Text {
+                        value: "normal".to_string(),
+                        position: LineSpan { start: 1, end: 1 }
+                    }),],
+                    position: LineSpan { start: 1, end: 1 }
+                },),
+                Node::Eol(Eol {
+                    position: LineSpan { start: 2, end: 2 }
+                }),
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Text(Text {
+                        value: "text".to_string(),
+                        position: LineSpan { start: 3, end: 3 }
+                    }),],
+                    position: LineSpan { start: 3, end: 3 }
+                },),
+            ],
+        )
+    }
+
     fn test_plain_text() {
         let input = "normal text";
         let nodes = build_tree(input);
