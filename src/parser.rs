@@ -271,6 +271,8 @@ fn parse_header(stream: &mut TokenStream) -> Node {
     // Validate the header and count header level
     let mut header_level = 0;
     let mut header_line = 0;
+    let mut header_position = 0;
+
     while let Some(token) = stream.next() {
         match token.token_type {
             // Increment header level for each `#` token and store its line number
@@ -290,6 +292,8 @@ fn parse_header(stream: &mut TokenStream) -> Node {
         match token.token_type {
             // If the next token is Whitespace, process it as a valid Header
             TokenType::Whitespace => {
+                header_position = token.line;
+
                 // If the header level exceeds 6, treat it as a Paragraph instead
                 if header_level > 6 {
                     let header_text_token = Token {
@@ -336,8 +340,8 @@ fn parse_header(stream: &mut TokenStream) -> Node {
         level: header_level,
         nodes,
         position: LineSpan {
-            start: header_line,
-            end: header_line,
+            start: header_position,
+            end: header_position,
         },
     })
 }
@@ -345,32 +349,60 @@ fn parse_header(stream: &mut TokenStream) -> Node {
 /// Wrap the nodes in a paragraph node.
 fn parse_paragraph(stream: &mut TokenStream) -> Node {
     let nodes: Vec<Node> = parse_line(stream);
-
-    Node::Paragraph(Paragraph {
-        nodes,
-        position: LineSpan { start: 1, end: 1 },
-    })
+    let position = if !nodes.is_empty() {
+        let start = nodes.first().unwrap().position().start;
+        let end = nodes.last().unwrap().position().end;
+        LineSpan { start, end }
+    } else {
+        // If there are no tokens to parse, refer to the previous token and use its line number
+        if let Some(prev_token) = stream.get(stream.index - 1) {
+            return Node::Paragraph(Paragraph {
+                nodes,
+                position: LineSpan {
+                    start: prev_token.line,
+                    end: prev_token.line,
+                },
+            });
+        }
+        LineSpan { start: 0, end: 0 }
+    };
+    Node::Paragraph(Paragraph { nodes, position })
 }
 
 fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
     let mut nodes: Vec<Node> = vec![];
     let mut is_closed = false;
+    let mut start: usize= 0;
+    let mut end: usize = 0;
 
-    while let Some(token) = stream.next() {
+    while let Some(token) = stream.peek() {
         match token.token_type {
             TokenType::Italic => {
                 is_closed = true;
+            }
+            TokenType::Eol => {
+                break;
             }
             _ => {
                 nodes.push(parse_token(token));
             }
         }
+        if start == 0 {
+            start = token.line;
+        }
+        end = end.max(token.line);
+        stream.next();
     }
 
     if !is_closed {
+        let mut italic_token_line = 0;
+        if let Some(prev_token) = stream.get(stream.index -1) {
+            italic_token_line = prev_token.line;
+        }
+        
         let italic_text_token = Node::Text(Text {
             value: "*".to_string(),
-            position: LineSpan { start: 1, end: 1 },
+            position: LineSpan { start: italic_token_line, end: italic_token_line },
         });
         let mut new_vec = vec![italic_text_token];
         new_vec.extend(nodes);
@@ -379,38 +411,54 @@ fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
 
     vec![Node::Italic(Italic {
         nodes,
-        position: LineSpan { start: 1, end: 1 },
+        position: LineSpan { start, end },
     })]
 }
 
 fn parse_bold(stream: &mut TokenStream) -> Vec<Node> {
     let mut nodes: Vec<Node> = vec![];
     let mut is_closed = false;
+    let mut start: usize= 0;
+    let mut end: usize = 0;
 
-    while let Some(token) = stream.next() {
+    while let Some(token) = stream.peek() {
         match token.token_type {
             TokenType::Bold => {
                 is_closed = true;
+                
+            }
+            TokenType::Eol => {
+                break;
             }
             _ => {
                 nodes.push(parse_token(token));
             }
         }
+        if start == 0 {
+            start = token.line;
+        }
+        end = end.max(token.line);
+        stream.next();
     }
 
     if !is_closed {
-        let italic_text_token = Node::Text(Text {
+        let mut bold_token_line = 0;
+        if let Some(prev_token) = stream.get(stream.index -1) {
+            bold_token_line = prev_token.line;
+        }
+
+        let bold_text_token = Node::Text(Text {
             value: "**".to_string(),
-            position: LineSpan { start: 1, end: 1 },
+            position: LineSpan { start: bold_token_line, end: bold_token_line},
         });
-        let mut new_vec = vec![italic_text_token];
+        let mut new_vec = vec![bold_text_token];
         new_vec.extend(nodes);
         return new_vec;
     }
 
     vec![Node::Bold(Bold {
         nodes,
-        position: LineSpan { start: 1, end: 1 },
+        position: LineSpan { start, end },
     })]
 }
 
@@ -461,6 +509,45 @@ mod tests {
                 ],
                 position: LineSpan { start: 1, end: 1 }
             },)],
+        )
+    }
+
+    #[test]
+    fn test_multiple_text() {
+        let input = "**bold**\n*italic*\nplain";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Bold(Bold {
+                        nodes: vec![Node::Text(Text {
+                            value: "bold".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),],
+                        position: LineSpan { start: 1, end: 1 }
+                    })],
+                    position: LineSpan { start: 1, end: 1 }
+                },),
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Italic(Italic {
+                        nodes: vec![Node::Text(Text {
+                            value: "italic".to_string(),
+                            position: LineSpan { start: 2, end: 2 }
+                        }),],
+                        position: LineSpan { start: 2, end: 2 }
+                    })],
+                    position: LineSpan { start: 2, end: 2 }
+                },),
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Text(Text {
+                        value: "plain".to_string(),
+                        position: LineSpan { start: 3, end: 3 }
+                    }),],
+                    position: LineSpan { start: 3, end: 3 }
+                },)
+            ],
         )
     }
 
@@ -644,19 +731,28 @@ mod tests {
 
     #[test]
     fn test_header_with_no_text() {
-        let input = "### ";
+        let input = "### \ntext";
         let nodes = build_tree(input);
 
         assert_eq!(
             nodes,
-            vec![Node::Header(Header {
-                level: 3,
-                nodes: vec![Node::Paragraph(Paragraph {
-                    nodes: vec![],
+            vec![
+                Node::Header(Header {
+                    level: 3,
+                    nodes: vec![Node::Paragraph(Paragraph {
+                        nodes: vec![],
+                        position: LineSpan { start: 1, end: 1 }
+                    })],
                     position: LineSpan { start: 1, end: 1 }
-                })],
-                position: LineSpan { start: 1, end: 1 }
-            })]
+                }),
+                Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Text(Text {
+                        value: "text".to_string(),
+                        position: LineSpan { start: 2, end: 2 }
+                    }),],
+                    position: LineSpan { start: 2, end: 2 }
+                })
+            ]
         )
     }
 
