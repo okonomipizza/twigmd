@@ -537,6 +537,7 @@ mod tests {
         )
     }
 
+    #[test]
     fn test_plain_text() {
         let input = "normal text";
         let nodes = build_tree(input);
