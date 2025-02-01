@@ -155,6 +155,11 @@ fn parse_unordered_list(stream: &mut TokenStream, cur_nest: usize) -> Node {
     while let Some(token) = stream.peek() {
         match token.token_type {
             TokenType::UnorderedList => {
+                // If the next line contains a list element without nesting, terminate parsing the list here.
+                if !nodes.is_empty() {
+                    break;
+                }
+                // Parsing starts here.
                 start = token.line;
                 end = token.line;
                 stream.next();
@@ -1030,6 +1035,44 @@ mod tests {
                 }),],
                 position: LineSpan { start: 1, end: 3 }
             }),],
+        )
+    }
+
+    #[test]
+    fn test_two_unordered_list() {
+        let input = "- item1\n - item1.1\n- item2";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![
+                Node::UnorderedList(UnorderedList {
+                    level: 0,
+                    nodes: vec![Node::Text(Text {
+                        value: "item1".to_string(),
+                        position: LineSpan { start: 1, end: 1 }
+                    }),],
+                    children: vec![Node::UnorderedList(UnorderedList {
+                        level: 1,
+                        nodes: vec![Node::Text(Text {
+                            value: "item1.1".to_string(),
+                            position: LineSpan { start: 2, end: 2 }
+                        }),],
+                        children: vec![],
+                        position: LineSpan { start: 2, end: 2 }
+                    }),],
+                    position: LineSpan { start: 1, end: 2 }
+                }),
+                Node::UnorderedList(UnorderedList {
+                    level: 0,
+                    nodes: vec![Node::Text(Text {
+                        value: "item2".to_string(),
+                        position: LineSpan { start: 3, end: 3 }
+                    }),],
+                    children: vec![],
+                    position: LineSpan { start: 3, end: 3 }
+                }),
+            ],
         )
     }
 
