@@ -150,6 +150,11 @@ pub fn lex(input: &str) -> Vec<Token> {
                     })
                 }
             }
+            '!' => tokens.push(Token {
+                token_type: TokenType::Exclamation,
+                value: c.to_string(),
+                line,
+            }),
             '{' => tokens.push(Token {
                 token_type: TokenType::CarlyBracketOpen,
                 value: c.to_string(),
@@ -231,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_multiple_markers() {
-        let input = "# > ` *";
+        let input = "# > ` * !";
         let tokens = lex(input);
 
         assert_eq!(
@@ -272,6 +277,16 @@ mod tests {
                     value: '*'.to_string(),
                     line: 1,
                 },
+                Token {
+                    token_type: TokenType::Whitespace,
+                    value: ' '.to_string(),
+                    line: 1,
+                },
+                Token {
+                    token_type: TokenType::Exclamation,
+                    value: '!'.to_string(),
+                    line: 1,
+                }
             ]
         );
     }
@@ -485,4 +500,6 @@ mod tests {
             ]
         );
     }
+    
+    
 }
