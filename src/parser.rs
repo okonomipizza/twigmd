@@ -395,6 +395,13 @@ fn parse_italic(stream: &mut TokenStream) -> Vec<Node> {
             TokenType::Italic => {
                 is_closed = true;
             }
+            TokenType::Whitespace => {
+                if is_closed {
+                    break;
+                } else {
+                    nodes.push(parse_token(token));
+                }
+            }
             TokenType::Eol => {
                 break;
             }
@@ -443,6 +450,13 @@ fn parse_bold(stream: &mut TokenStream) -> Vec<Node> {
         match token.token_type {
             TokenType::Bold => {
                 is_closed = true;
+            }
+            TokenType::Whitespace => {
+                if is_closed {
+                    break;
+                } else {
+                    nodes.push(parse_token(token));
+                }
             }
             TokenType::Eol => {
                 break;
@@ -548,6 +562,64 @@ mod tests {
                 nodes: vec![
                     Node::Text(Text {
                         value: "normal".to_string(),
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::Whitespace(Whitespace {
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::Text(Text {
+                        value: "text".to_string(),
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                ],
+                position: LineSpan { start: 1, end: 1 }
+            },)],
+        )
+    }
+
+    #[test]
+    fn test_italic_and_plain_text() {
+        let input = "*italic* text";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![Node::Paragraph(Paragraph {
+                nodes: vec![
+                    Node::Italic(Italic {
+                        nodes: vec![Node::Text(Text {
+                            value: "italic".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),],
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::Whitespace(Whitespace {
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::Text(Text {
+                        value: "text".to_string(),
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                ],
+                position: LineSpan { start: 1, end: 1 }
+            },)],
+        )
+    }
+
+    #[test]
+    fn test_bold_and_plain_text() {
+        let input = "**bold** text";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![Node::Paragraph(Paragraph {
+                nodes: vec![
+                    Node::Bold(Bold {
+                        nodes: vec![Node::Text(Text {
+                            value: "bold".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),],
                         position: LineSpan { start: 1, end: 1 }
                     }),
                     Node::Whitespace(Whitespace {
