@@ -149,7 +149,7 @@ pub fn lex(input: &str) -> Vec<Token> {
                         line,
                     })
                 }
-            }
+            },
             '!' => tokens.push(Token {
                 token_type: TokenType::Exclamation,
                 value: c.to_string(),
