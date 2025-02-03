@@ -172,6 +172,7 @@ fn parse_quote(stream: &mut TokenStream) -> Node {
                 }));
             }
             nodes.extend(parse_line(stream));
+            stream.back(); // because parse_line uses stream.next()
         }
         let end = if let Some(nodes_last) = nodes.last() {
             nodes_last.position().end
@@ -664,7 +665,7 @@ mod tests {
 
     #[test]
     fn test_alert() {
-        let input = "> [!NOTE]\n> note content";
+        let input = "> [!NOTE]\n> note content\n> note content";
         let nodes = build_tree(input);
 
         assert_eq!(
@@ -683,8 +684,22 @@ mod tests {
                         value: "content".to_string(),
                         position: LineSpan { start: 2, end: 2 }
                     }),
+                    Node::Eol(Eol {
+                        position: LineSpan {start: 2, end: 2}
+                    }),
+                    Node::Text(Text {
+                        value: "note".to_string(),
+                        position: LineSpan { start: 3, end: 3 }
+                    }),
+                    Node::Whitespace(Whitespace {
+                        position: LineSpan { start: 3, end: 3 }
+                    }),
+                    Node::Text(Text {
+                        value: "content".to_string(),
+                        position: LineSpan { start: 3, end: 3 }
+                    }),
                 ],
-                position: LineSpan { start: 1, end: 2 }
+                position: LineSpan { start: 1, end: 3 }
             })],
         )
     }
