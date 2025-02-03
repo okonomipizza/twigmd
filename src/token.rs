@@ -22,6 +22,7 @@ pub enum TokenType {
     HorizontalRule,     // ---
     AlertStart,         // :::<type>
     AlertEnd,           // :::
+    Exclamation,        // !
     Unknown,
 }
 

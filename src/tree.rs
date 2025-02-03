@@ -11,6 +11,7 @@ pub enum Node {
     Italic(Italic),
     Bold(Bold),
     Whitespace(Whitespace),
+    Alert(Alert),
     Eol(Eol),
 }
 
@@ -24,6 +25,7 @@ impl Node {
             Node::Italic(italic) => italic.position(),
             Node::Bold(bold) => bold.position(),
             Node::Whitespace(whitespace) => whitespace.position(),
+            Node::Alert(alert) => alert.position(),
             Node::Eol(eol) => eol.position(),
         }
     }
@@ -55,6 +57,7 @@ impl_positioned!(Text);
 impl_positioned!(Italic);
 impl_positioned!(Bold);
 impl_positioned!(Whitespace);
+impl_positioned!(Alert);
 impl_positioned!(Eol);
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -98,6 +101,22 @@ pub struct Bold {
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Whitespace {
+    pub position: LineSpan,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Clone)]
+pub enum AlertType {
+    Note,
+    Tip,
+    Important,
+    Warning,
+    Caution,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Alert {
+    pub alert_type: AlertType,
+    pub nodes: Vec<Node>,
     pub position: LineSpan,
 }
 
