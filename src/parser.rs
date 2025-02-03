@@ -1,9 +1,11 @@
+use std::{collections::HashMap, vec};
+
 use crate::{
     lexer::lex,
     token::{Token, TokenType},
     tree::{
-        Bold, Eol, Header, Italic, LineSpan, Node, Paragraph, Positioned, Text, UnorderedList,
-        Whitespace,
+        Alert, AlertType, Bold, Eol, Header, Italic, LineSpan, Node, Paragraph, Positioned, Text,
+        UnorderedList, Whitespace,
     },
 };
 
@@ -127,6 +129,10 @@ fn parse(stream: &mut TokenStream) -> Vec<Node> {
                 let node = parse_paragraph(stream);
                 nodes.push(node);
             }
+            TokenType::BlockQuote => {
+                let node = parse_quote(stream);
+                nodes.push(node);
+            }
             TokenType::Eol => {
                 let node = Node::Eol(Eol {
                     position: LineSpan {
@@ -144,6 +150,99 @@ fn parse(stream: &mut TokenStream) -> Vec<Node> {
         }
     }
     nodes
+}
+
+fn parse_quote(stream: &mut TokenStream) -> Node {
+    let start = if let Some(token) = stream.peek() {
+        token.line
+    } else {
+        0
+    };
+
+    // in case of alert
+    if let Some(alert_type) = is_alert(stream) {
+        let mut nodes: Vec<Node> = vec![];
+        while is_next_line_quoted(stream) {
+            if let Some(node) = nodes.last() {
+                nodes.push(Node::Eol(Eol {
+                    position: LineSpan {
+                        start: node.position().start,
+                        end: node.position().end,
+                    },
+                }));
+            }
+            nodes.extend(parse_line(stream));
+        }
+        let end = if let Some(nodes_last) = nodes.last() {
+            nodes_last.position().end
+        } else {
+            start
+        };
+        return Node::Alert(Alert {
+            alert_type,
+            nodes,
+            position: { LineSpan { start, end } },
+        });
+    }
+
+    // どちらでもなければtextとしてparse
+    parse_paragraph(stream)
+}
+
+/// stream.get(stream.index).value == "\n"のときに呼び出される
+/// 次の行が"> "で始まっていれば3token目までstream.index += 3して返す"
+fn is_next_line_quoted(stream: &mut TokenStream) -> bool {
+    let mut ix = stream.index + 1;
+    if let Some(token) = stream.get(ix) {
+        if token.token_type == TokenType::BlockQuote {
+            ix += 1;
+            if let Some(may_be_whitespace) = stream.get(ix) {
+                if may_be_whitespace.token_type == TokenType::Whitespace {
+                    stream.index += 3;
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+// stream.get(stream.index).value == ">"のときに呼び出される
+fn is_alert(stream: &mut TokenStream) -> Option<AlertType> {
+    let mut parts = Vec::new();
+    let alert_types: HashMap<&str, AlertType> = [
+        ("[!NOTE]", AlertType::Note),
+        ("[!TIP]", AlertType::Tip),
+        ("[!IMPORTANT]", AlertType::Important),
+        ("[!WARNING]", AlertType::Warning),
+        ("[!CAUTION]", AlertType::Caution),
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    // ">"に続くtokenから解析を開始する
+    let mut ix = stream.index + 1;
+    if let Some(token) = stream.get(ix) {
+        if token.token_type == TokenType::Whitespace {
+            ix += 1;
+            // "> "以降を取得
+            while let Some(token) = stream.get(ix) {
+                if token.token_type == TokenType::Eol {
+                    break;
+                }
+                parts.push(token.value.to_string());
+                ix += 1;
+            }
+            // in case of valid alert
+            if let Some(alert_type) = alert_types.get(&parts.join("").as_str()) {
+                stream.index = ix;
+                return Some(alert_type.clone());
+            }
+        }
+    }
+
+    None
 }
 
 fn parse_unordered_list(stream: &mut TokenStream, cur_nest: usize) -> Node {
@@ -521,6 +620,74 @@ mod tests {
         Bold, Eol, Italic, LineSpan, Node, Paragraph, Text, UnorderedList, Whitespace,
     };
     use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_is_alert() {
+        let test_cases = vec![
+            ("> [!NOTE]", Some(AlertType::Note)),
+            ("> [!TIP]", Some(AlertType::Tip)),
+            ("> [!IMPORTANT]", Some(AlertType::Important)),
+            ("> [!WARNING]", Some(AlertType::Warning)),
+            ("> [!CAUTION]", Some(AlertType::Caution)),
+            ("No alert", None),
+        ];
+
+        for (input, expected) in test_cases {
+            let mut tokens = lex(&input);
+            let mut stream = TokenStream::new(&mut tokens);
+
+            assert_eq!(
+                is_alert(&mut stream),
+                expected,
+                "Failed on input: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_next_quote() {
+        let test_cases = vec![("\n> quote", true), ("\nNo quote", false)];
+
+        for (input, expected) in test_cases {
+            let mut tokens = lex(&input);
+            let mut stream = TokenStream::new(&mut tokens);
+
+            assert!(
+                is_next_line_quoted(&mut stream) == expected,
+                "Failed on input: {:?}, expected: {}",
+                input,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_alert() {
+        let input = "> [!NOTE]\n> note content";
+        let nodes = build_tree(input);
+
+        assert_eq!(
+            nodes,
+            vec![Node::Alert(Alert {
+                alert_type: AlertType::Note,
+                nodes: vec![
+                    Node::Text(Text {
+                        value: "note".to_string(),
+                        position: LineSpan { start: 2, end: 2 }
+                    }),
+                    Node::Whitespace(Whitespace {
+                        position: LineSpan { start: 2, end: 2 }
+                    }),
+                    Node::Text(Text {
+                        value: "content".to_string(),
+                        position: LineSpan { start: 2, end: 2 }
+                    }),
+                ],
+                position: LineSpan { start: 1, end: 2 }
+            })],
+        )
+    }
 
     #[test]
     fn test_break() {
