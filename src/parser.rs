@@ -622,399 +622,83 @@ mod tests {
     };
     use pretty_assertions::assert_eq;
 
-    #[test]
-    fn test_is_alert() {
-        let test_cases = vec![
-            ("> [!NOTE]", Some(AlertType::Note)),
-            ("> [!TIP]", Some(AlertType::Tip)),
-            ("> [!IMPORTANT]", Some(AlertType::Important)),
-            ("> [!WARNING]", Some(AlertType::Warning)),
-            ("> [!CAUTION]", Some(AlertType::Caution)),
-            ("No alert", None),
-        ];
+    mod header_tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
 
-        for (input, expected) in test_cases {
-            let mut tokens = lex(&input);
-            let mut stream = TokenStream::new(&mut tokens);
+        #[test]
+        fn test_header_marker() {
+            let input = "# Header text";
+            let nodes = build_tree(input);
 
             assert_eq!(
-                is_alert(&mut stream),
-                expected,
-                "Failed on input: {}",
-                input
-            );
-        }
-    }
-
-    #[test]
-    fn test_is_next_quote() {
-        let test_cases = vec![("\n> quote", true), ("\nNo quote", false)];
-
-        for (input, expected) in test_cases {
-            let mut tokens = lex(&input);
-            let mut stream = TokenStream::new(&mut tokens);
-
-            assert!(
-                is_next_line_quoted(&mut stream) == expected,
-                "Failed on input: {:?}, expected: {}",
-                input,
-                expected
-            );
-        }
-    }
-
-    #[test]
-    fn test_alert() {
-        let input = "> [!NOTE]\n> note content\n> note content";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Alert(Alert {
-                alert_type: AlertType::Note,
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "note".to_string(),
-                        position: LineSpan { start: 2, end: 2 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 2, end: 2 }
-                    }),
-                    Node::Text(Text {
-                        value: "content".to_string(),
-                        position: LineSpan { start: 2, end: 2 }
-                    }),
-                    Node::Eol(Eol {
-                        position: LineSpan {start: 2, end: 2}
-                    }),
-                    Node::Text(Text {
-                        value: "note".to_string(),
-                        position: LineSpan { start: 3, end: 3 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 3, end: 3 }
-                    }),
-                    Node::Text(Text {
-                        value: "content".to_string(),
-                        position: LineSpan { start: 3, end: 3 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 3 }
-            })],
-        )
-    }
-
-    #[test]
-    fn test_break() {
-        let input = "normal\n\ntext";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Text(Text {
-                        value: "normal".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),],
-                    position: LineSpan { start: 1, end: 1 }
-                },),
-                Node::Eol(Eol {
-                    position: LineSpan { start: 2, end: 2 }
-                }),
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 3, end: 3 }
-                    }),],
-                    position: LineSpan { start: 3, end: 3 }
-                },),
-            ],
-        )
-    }
-
-    #[test]
-    fn test_plain_text() {
-        let input = "normal text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "normal".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_italic_and_plain_text() {
-        let input = "*italic* text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Italic(Italic {
-                        nodes: vec![Node::Text(Text {
-                            value: "italic".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),],
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_bold_and_plain_text() {
-        let input = "**bold** text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Bold(Bold {
-                        nodes: vec![Node::Text(Text {
-                            value: "bold".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),],
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_multiple_text() {
-        let input = "**bold**\n*italic*\nplain";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Bold(Bold {
-                        nodes: vec![Node::Text(Text {
-                            value: "bold".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),],
+                nodes,
+                vec![Node::Header(Header {
+                    level: 1,
+                    nodes: vec![Node::Paragraph(Paragraph {
+                        nodes: vec![
+                            Node::Text(Text {
+                                value: "Header".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Whitespace(Whitespace {
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Text(Text {
+                                value: "text".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                        ],
                         position: LineSpan { start: 1, end: 1 }
                     })],
                     position: LineSpan { start: 1, end: 1 }
-                },),
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Italic(Italic {
+                })]
+            )
+        }
+
+        #[test]
+        fn test_header_with_no_text() {
+            let input = "### \ntext";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![
+                    Node::Header(Header {
+                        level: 3,
+                        nodes: vec![Node::Paragraph(Paragraph {
+                            nodes: vec![],
+                            position: LineSpan { start: 1, end: 1 }
+                        })],
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::Paragraph(Paragraph {
                         nodes: vec![Node::Text(Text {
-                            value: "italic".to_string(),
+                            value: "text".to_string(),
                             position: LineSpan { start: 2, end: 2 }
                         }),],
                         position: LineSpan { start: 2, end: 2 }
-                    })],
-                    position: LineSpan { start: 2, end: 2 }
-                },),
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Text(Text {
-                        value: "plain".to_string(),
-                        position: LineSpan { start: 3, end: 3 }
-                    }),],
-                    position: LineSpan { start: 3, end: 3 }
-                },)
-            ],
-        )
-    }
+                    })
+                ]
+            )
+        }
 
-    #[test]
-    fn test_closed_italic_marker() {
-        let input = "*italic text*";
-        let nodes = build_tree(input);
+        #[test]
+        fn test_too_long_header_marker() {
+            let input = "####### Header text\n";
+            let nodes = build_tree(input);
 
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![Node::Italic(Italic {
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
                     nodes: vec![
                         Node::Text(Text {
-                            value: "italic".to_string(),
+                            value: "#######".to_string(),
                             position: LineSpan { start: 1, end: 1 }
                         }),
                         Node::Whitespace(Whitespace {
                             position: LineSpan { start: 1, end: 1 }
                         }),
-                        Node::Text(Text {
-                            value: "text".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),
-                    ],
-                    position: LineSpan { start: 1, end: 1 }
-                })],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_unclosed_italic_marker() {
-        let input = "*italic text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "*".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "italic".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_unmatched_italic_marker() {
-        let input = "italic text*";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "italic".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "*".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_closed_bold_marker() {
-        let input = "**bold text**";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![Node::Bold(Bold {
-                    nodes: vec![
-                        Node::Text(Text {
-                            value: "bold".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),
-                        Node::Whitespace(Whitespace {
-                            position: LineSpan { start: 1, end: 1 }
-                        }),
-                        Node::Text(Text {
-                            value: "text".to_string(),
-                            position: LineSpan { start: 1, end: 1 }
-                        }),
-                    ],
-                    position: LineSpan { start: 1, end: 1 }
-                })],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_unclosed_bold_marker() {
-        let input = "**bold text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "**".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "bold".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_header_marker() {
-        let input = "# Header text";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Header(Header {
-                level: 1,
-                nodes: vec![Node::Paragraph(Paragraph {
-                    nodes: vec![
                         Node::Text(Text {
                             value: "Header".to_string(),
                             position: LineSpan { start: 1, end: 1 }
@@ -1028,107 +712,115 @@ mod tests {
                         }),
                     ],
                     position: LineSpan { start: 1, end: 1 }
-                })],
-                position: LineSpan { start: 1, end: 1 }
-            })]
-        )
-    }
+                },)],
+            )
+        }
 
-    #[test]
-    fn test_header_with_no_text() {
-        let input = "### \ntext";
-        let nodes = build_tree(input);
+        #[test]
+        fn test_invalid_header_marker() {
+            let input = "#Header text";
+            let nodes = build_tree(input);
 
-        assert_eq!(
-            nodes,
-            vec![
-                Node::Header(Header {
-                    level: 3,
-                    nodes: vec![Node::Paragraph(Paragraph {
-                        nodes: vec![],
-                        position: LineSpan { start: 1, end: 1 }
-                    })],
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "#Header".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
                     position: LineSpan { start: 1, end: 1 }
-                }),
-                Node::Paragraph(Paragraph {
-                    nodes: vec![Node::Text(Text {
-                        value: "text".to_string(),
+                },)],
+            )
+        }
+    }
+
+    mod unordered_list_tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn test_unordered_list() {
+            let input = "- item 1\n- item 2\n- item 3\n";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![
+                    Node::UnorderedList(UnorderedList {
+                        level: 0,
+                        nodes: vec![
+                            Node::Text(Text {
+                                value: "item".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Whitespace(Whitespace {
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Text(Text {
+                                value: "1".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                        ],
+                        children: vec![],
+                        position: LineSpan { start: 1, end: 1 }
+                    }),
+                    Node::UnorderedList(UnorderedList {
+                        level: 0,
+                        nodes: vec![
+                            Node::Text(Text {
+                                value: "item".to_string(),
+                                position: LineSpan { start: 2, end: 2 }
+                            }),
+                            Node::Whitespace(Whitespace {
+                                position: LineSpan { start: 2, end: 2 }
+                            }),
+                            Node::Text(Text {
+                                value: "2".to_string(),
+                                position: LineSpan { start: 2, end: 2 }
+                            }),
+                        ],
+                        children: vec![],
                         position: LineSpan { start: 2, end: 2 }
-                    }),],
-                    position: LineSpan { start: 2, end: 2 }
-                })
-            ]
-        )
-    }
-
-    #[test]
-    fn test_too_long_header_marker() {
-        let input = "####### Header text\n";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "#######".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
                     }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "Header".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
+                    Node::UnorderedList(UnorderedList {
+                        level: 0,
+                        nodes: vec![
+                            Node::Text(Text {
+                                value: "item".to_string(),
+                                position: LineSpan { start: 3, end: 3 }
+                            }),
+                            Node::Whitespace(Whitespace {
+                                position: LineSpan { start: 3, end: 3 }
+                            }),
+                            Node::Text(Text {
+                                value: "3".to_string(),
+                                position: LineSpan { start: 3, end: 3 }
+                            }),
+                        ],
+                        children: vec![],
+                        position: LineSpan { start: 3, end: 3 }
                     }),
                 ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
+            )
+        }
 
-    #[test]
-    fn test_invalid_header_marker() {
-        let input = "#Header text";
-        let nodes = build_tree(input);
+        #[test]
+        fn test_unordered_nested_list() {
+            let input = "- item 1\n - item 1.1\n";
+            let nodes = build_tree(input);
 
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "#Header".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "text".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_unordered_list() {
-        let input = "- item 1\n- item 2\n- item 3\n";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![
-                Node::UnorderedList(UnorderedList {
+            assert_eq!(
+                nodes,
+                vec![Node::UnorderedList(UnorderedList {
                     level: 0,
                     nodes: vec![
                         Node::Text(Text {
@@ -1143,219 +835,7 @@ mod tests {
                             position: LineSpan { start: 1, end: 1 }
                         }),
                     ],
-                    children: vec![],
-                    position: LineSpan { start: 1, end: 1 }
-                }),
-                Node::UnorderedList(UnorderedList {
-                    level: 0,
-                    nodes: vec![
-                        Node::Text(Text {
-                            value: "item".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Whitespace(Whitespace {
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Text(Text {
-                            value: "2".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                    ],
-                    children: vec![],
-                    position: LineSpan { start: 2, end: 2 }
-                }),
-                Node::UnorderedList(UnorderedList {
-                    level: 0,
-                    nodes: vec![
-                        Node::Text(Text {
-                            value: "item".to_string(),
-                            position: LineSpan { start: 3, end: 3 }
-                        }),
-                        Node::Whitespace(Whitespace {
-                            position: LineSpan { start: 3, end: 3 }
-                        }),
-                        Node::Text(Text {
-                            value: "3".to_string(),
-                            position: LineSpan { start: 3, end: 3 }
-                        }),
-                    ],
-                    children: vec![],
-                    position: LineSpan { start: 3, end: 3 }
-                }),
-            ],
-        )
-    }
-
-    #[test]
-    fn test_unordered_nested_list() {
-        let input = "- item 1\n - item 1.1\n";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::UnorderedList(UnorderedList {
-                level: 0,
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "item".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "1".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                children: vec![Node::UnorderedList(UnorderedList {
-                    level: 1,
-                    nodes: vec![
-                        Node::Text(Text {
-                            value: "item".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Whitespace(Whitespace {
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Text(Text {
-                            value: "1.1".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                    ],
-                    children: vec![],
-                    position: LineSpan { start: 2, end: 2 }
-                }),],
-                position: LineSpan { start: 1, end: 2 }
-            }),],
-        )
-    }
-
-    #[test]
-    fn test_nested_unordered_list_in_two_levels() {
-        let input = "- item 1\n - item 1.1\n  - item 1.1.1";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::UnorderedList(UnorderedList {
-                level: 0,
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "item".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "1".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                children: vec![Node::UnorderedList(UnorderedList {
-                    level: 1,
-                    nodes: vec![
-                        Node::Text(Text {
-                            value: "item".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Whitespace(Whitespace {
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                        Node::Text(Text {
-                            value: "1.1".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),
-                    ],
                     children: vec![Node::UnorderedList(UnorderedList {
-                        level: 2,
-                        nodes: vec![
-                            Node::Text(Text {
-                                value: "item".to_string(),
-                                position: LineSpan { start: 3, end: 3 }
-                            }),
-                            Node::Whitespace(Whitespace {
-                                position: LineSpan { start: 3, end: 3 }
-                            }),
-                            Node::Text(Text {
-                                value: "1.1.1".to_string(),
-                                position: LineSpan { start: 3, end: 3 }
-                            }),
-                        ],
-                        children: vec![],
-                        position: LineSpan { start: 3, end: 3 }
-                    }),],
-                    position: LineSpan { start: 2, end: 3 }
-                }),],
-                position: LineSpan { start: 1, end: 3 }
-            }),],
-        )
-    }
-
-    #[test]
-    fn test_two_unordered_list() {
-        let input = "- item1\n - item1.1\n- item2";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![
-                Node::UnorderedList(UnorderedList {
-                    level: 0,
-                    nodes: vec![Node::Text(Text {
-                        value: "item1".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),],
-                    children: vec![Node::UnorderedList(UnorderedList {
-                        level: 1,
-                        nodes: vec![Node::Text(Text {
-                            value: "item1.1".to_string(),
-                            position: LineSpan { start: 2, end: 2 }
-                        }),],
-                        children: vec![],
-                        position: LineSpan { start: 2, end: 2 }
-                    }),],
-                    position: LineSpan { start: 1, end: 2 }
-                }),
-                Node::UnorderedList(UnorderedList {
-                    level: 0,
-                    nodes: vec![Node::Text(Text {
-                        value: "item2".to_string(),
-                        position: LineSpan { start: 3, end: 3 }
-                    }),],
-                    children: vec![],
-                    position: LineSpan { start: 3, end: 3 }
-                }),
-            ],
-        )
-    }
-
-    #[test]
-    fn test_unordered_complexly_nested_list() {
-        let input =
-            "- item 1\n - item 1.1\n - item 1.2\n  - item 1.2.1\n   - item 1.2.1.1\n - item 1.3";
-        let nodes = build_tree(input);
-
-        assert_eq!(
-            nodes,
-            vec![Node::UnorderedList(UnorderedList {
-                level: 0,
-                nodes: vec![
-                    Node::Text(Text {
-                        value: "item".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Whitespace(Whitespace {
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "1".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                ],
-                children: vec![
-                    Node::UnorderedList(UnorderedList {
                         level: 1,
                         nodes: vec![
                             Node::Text(Text {
@@ -1372,20 +852,47 @@ mod tests {
                         ],
                         children: vec![],
                         position: LineSpan { start: 2, end: 2 }
-                    }),
-                    Node::UnorderedList(UnorderedList {
+                    }),],
+                    position: LineSpan { start: 1, end: 2 }
+                }),],
+            )
+        }
+
+        #[test]
+        fn test_nested_unordered_list_in_two_levels() {
+            let input = "- item 1\n - item 1.1\n  - item 1.1.1";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::UnorderedList(UnorderedList {
+                    level: 0,
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "item".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "1".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    children: vec![Node::UnorderedList(UnorderedList {
                         level: 1,
                         nodes: vec![
                             Node::Text(Text {
                                 value: "item".to_string(),
-                                position: LineSpan { start: 3, end: 3 }
+                                position: LineSpan { start: 2, end: 2 }
                             }),
                             Node::Whitespace(Whitespace {
-                                position: LineSpan { start: 3, end: 3 }
+                                position: LineSpan { start: 2, end: 2 }
                             }),
                             Node::Text(Text {
-                                value: "1.2".to_string(),
-                                position: LineSpan { start: 3, end: 3 }
+                                value: "1.1".to_string(),
+                                position: LineSpan { start: 2, end: 2 }
                             }),
                         ],
                         children: vec![Node::UnorderedList(UnorderedList {
@@ -1393,102 +900,620 @@ mod tests {
                             nodes: vec![
                                 Node::Text(Text {
                                     value: "item".to_string(),
-                                    position: LineSpan { start: 4, end: 4 }
+                                    position: LineSpan { start: 3, end: 3 }
                                 }),
                                 Node::Whitespace(Whitespace {
-                                    position: LineSpan { start: 4, end: 4 }
+                                    position: LineSpan { start: 3, end: 3 }
                                 }),
                                 Node::Text(Text {
-                                    value: "1.2.1".to_string(),
-                                    position: LineSpan { start: 4, end: 4 }
+                                    value: "1.1.1".to_string(),
+                                    position: LineSpan { start: 3, end: 3 }
+                                }),
+                            ],
+                            children: vec![],
+                            position: LineSpan { start: 3, end: 3 }
+                        }),],
+                        position: LineSpan { start: 2, end: 3 }
+                    }),],
+                    position: LineSpan { start: 1, end: 3 }
+                }),],
+            )
+        }
+
+        #[test]
+        fn test_two_unordered_list() {
+            let input = "- item1\n - item1.1\n- item2";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![
+                    Node::UnorderedList(UnorderedList {
+                        level: 0,
+                        nodes: vec![Node::Text(Text {
+                            value: "item1".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),],
+                        children: vec![Node::UnorderedList(UnorderedList {
+                            level: 1,
+                            nodes: vec![Node::Text(Text {
+                                value: "item1.1".to_string(),
+                                position: LineSpan { start: 2, end: 2 }
+                            }),],
+                            children: vec![],
+                            position: LineSpan { start: 2, end: 2 }
+                        }),],
+                        position: LineSpan { start: 1, end: 2 }
+                    }),
+                    Node::UnorderedList(UnorderedList {
+                        level: 0,
+                        nodes: vec![Node::Text(Text {
+                            value: "item2".to_string(),
+                            position: LineSpan { start: 3, end: 3 }
+                        }),],
+                        children: vec![],
+                        position: LineSpan { start: 3, end: 3 }
+                    }),
+                ],
+            )
+        }
+
+        #[test]
+        fn test_unordered_complexly_nested_list() {
+            let input =
+            "- item 1\n - item 1.1\n - item 1.2\n  - item 1.2.1\n   - item 1.2.1.1\n - item 1.3";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::UnorderedList(UnorderedList {
+                    level: 0,
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "item".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "1".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    children: vec![
+                        Node::UnorderedList(UnorderedList {
+                            level: 1,
+                            nodes: vec![
+                                Node::Text(Text {
+                                    value: "item".to_string(),
+                                    position: LineSpan { start: 2, end: 2 }
+                                }),
+                                Node::Whitespace(Whitespace {
+                                    position: LineSpan { start: 2, end: 2 }
+                                }),
+                                Node::Text(Text {
+                                    value: "1.1".to_string(),
+                                    position: LineSpan { start: 2, end: 2 }
+                                }),
+                            ],
+                            children: vec![],
+                            position: LineSpan { start: 2, end: 2 }
+                        }),
+                        Node::UnorderedList(UnorderedList {
+                            level: 1,
+                            nodes: vec![
+                                Node::Text(Text {
+                                    value: "item".to_string(),
+                                    position: LineSpan { start: 3, end: 3 }
+                                }),
+                                Node::Whitespace(Whitespace {
+                                    position: LineSpan { start: 3, end: 3 }
+                                }),
+                                Node::Text(Text {
+                                    value: "1.2".to_string(),
+                                    position: LineSpan { start: 3, end: 3 }
                                 }),
                             ],
                             children: vec![Node::UnorderedList(UnorderedList {
-                                level: 3,
+                                level: 2,
                                 nodes: vec![
                                     Node::Text(Text {
                                         value: "item".to_string(),
-                                        position: LineSpan { start: 5, end: 5 }
+                                        position: LineSpan { start: 4, end: 4 }
                                     }),
                                     Node::Whitespace(Whitespace {
-                                        position: LineSpan { start: 5, end: 5 }
+                                        position: LineSpan { start: 4, end: 4 }
                                     }),
                                     Node::Text(Text {
-                                        value: "1.2.1.1".to_string(),
-                                        position: LineSpan { start: 5, end: 5 }
+                                        value: "1.2.1".to_string(),
+                                        position: LineSpan { start: 4, end: 4 }
                                     }),
                                 ],
-                                children: vec![],
-                                position: LineSpan { start: 5, end: 5 }
+                                children: vec![Node::UnorderedList(UnorderedList {
+                                    level: 3,
+                                    nodes: vec![
+                                        Node::Text(Text {
+                                            value: "item".to_string(),
+                                            position: LineSpan { start: 5, end: 5 }
+                                        }),
+                                        Node::Whitespace(Whitespace {
+                                            position: LineSpan { start: 5, end: 5 }
+                                        }),
+                                        Node::Text(Text {
+                                            value: "1.2.1.1".to_string(),
+                                            position: LineSpan { start: 5, end: 5 }
+                                        }),
+                                    ],
+                                    children: vec![],
+                                    position: LineSpan { start: 5, end: 5 }
+                                }),],
+                                position: LineSpan { start: 4, end: 5 }
                             }),],
-                            position: LineSpan { start: 4, end: 5 }
+                            position: LineSpan { start: 3, end: 5 }
+                        }),
+                        Node::UnorderedList(UnorderedList {
+                            level: 1,
+                            nodes: vec![
+                                Node::Text(Text {
+                                    value: "item".to_string(),
+                                    position: LineSpan { start: 6, end: 6 }
+                                }),
+                                Node::Whitespace(Whitespace {
+                                    position: LineSpan { start: 6, end: 6 }
+                                }),
+                                Node::Text(Text {
+                                    value: "1.3".to_string(),
+                                    position: LineSpan { start: 6, end: 6 }
+                                }),
+                            ],
+                            children: vec![],
+                            position: LineSpan { start: 6, end: 6 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 6 }
+                }),],
+            )
+        }
+
+        #[test]
+        fn test_unordered_list_started_with_nested_content() {
+            let input = " - item1";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "- ".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "item1".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_fn_is_next_list() {
+            // not nested
+            let input = "- item1";
+            let mut tokens = lex(input);
+            let stream = TokenStream::new(&mut tokens);
+            let next_nest = stream.is_next_list();
+            assert_eq!(next_nest, Some(0));
+
+            // nested once
+            let input = " - item1";
+            let mut tokens = lex(input);
+            let stream = TokenStream::new(&mut tokens);
+            let next_nest = stream.is_next_list();
+            assert_eq!(next_nest, Some(1));
+        }
+    }
+
+    mod alert_tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn test_is_alert() {
+            let test_cases = vec![
+                ("> [!NOTE]", Some(AlertType::Note)),
+                ("> [!TIP]", Some(AlertType::Tip)),
+                ("> [!IMPORTANT]", Some(AlertType::Important)),
+                ("> [!WARNING]", Some(AlertType::Warning)),
+                ("> [!CAUTION]", Some(AlertType::Caution)),
+                ("No alert", None),
+            ];
+
+            for (input, expected) in test_cases {
+                let mut tokens = lex(&input);
+                let mut stream = TokenStream::new(&mut tokens);
+
+                assert_eq!(
+                    is_alert(&mut stream),
+                    expected,
+                    "Failed on input: {}",
+                    input
+                );
+            }
+        }
+
+        #[test]
+        fn test_is_next_quote() {
+            let test_cases = vec![("\n> quote", true), ("\nNo quote", false)];
+
+            for (input, expected) in test_cases {
+                let mut tokens = lex(&input);
+                let mut stream = TokenStream::new(&mut tokens);
+
+                assert!(
+                    is_next_line_quoted(&mut stream) == expected,
+                    "Failed on input: {:?}, expected: {}",
+                    input,
+                    expected
+                );
+            }
+        }
+
+        #[test]
+        fn test_alert() {
+            let input = "> [!NOTE]\n> note content\n> note content";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Alert(Alert {
+                    alert_type: AlertType::Note,
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "note".to_string(),
+                            position: LineSpan { start: 2, end: 2 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 2, end: 2 }
+                        }),
+                        Node::Text(Text {
+                            value: "content".to_string(),
+                            position: LineSpan { start: 2, end: 2 }
+                        }),
+                        Node::Eol(Eol {
+                            position: LineSpan { start: 2, end: 2 }
+                        }),
+                        Node::Text(Text {
+                            value: "note".to_string(),
+                            position: LineSpan { start: 3, end: 3 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 3, end: 3 }
+                        }),
+                        Node::Text(Text {
+                            value: "content".to_string(),
+                            position: LineSpan { start: 3, end: 3 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 3 }
+                })],
+            )
+        }
+    }
+
+    mod styled_text_tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
+
+        #[test]
+        fn test_italic_and_plain_text() {
+            let input = "*italic* text";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Italic(Italic {
+                            nodes: vec![Node::Text(Text {
+                                value: "italic".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),],
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_bold_and_plain_text() {
+            let input = "**bold** text";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Bold(Bold {
+                            nodes: vec![Node::Text(Text {
+                                value: "bold".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),],
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_multiple_text() {
+            let input = "**bold**\n*italic*\nplain";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![
+                    Node::Paragraph(Paragraph {
+                        nodes: vec![Node::Bold(Bold {
+                            nodes: vec![Node::Text(Text {
+                                value: "bold".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),],
+                            position: LineSpan { start: 1, end: 1 }
+                        })],
+                        position: LineSpan { start: 1, end: 1 }
+                    },),
+                    Node::Paragraph(Paragraph {
+                        nodes: vec![Node::Italic(Italic {
+                            nodes: vec![Node::Text(Text {
+                                value: "italic".to_string(),
+                                position: LineSpan { start: 2, end: 2 }
+                            }),],
+                            position: LineSpan { start: 2, end: 2 }
+                        })],
+                        position: LineSpan { start: 2, end: 2 }
+                    },),
+                    Node::Paragraph(Paragraph {
+                        nodes: vec![Node::Text(Text {
+                            value: "plain".to_string(),
+                            position: LineSpan { start: 3, end: 3 }
                         }),],
-                        position: LineSpan { start: 3, end: 5 }
-                    }),
-                    Node::UnorderedList(UnorderedList {
-                        level: 1,
+                        position: LineSpan { start: 3, end: 3 }
+                    },)
+                ],
+            )
+        }
+
+        #[test]
+        fn test_closed_italic_marker() {
+            let input = "*italic text*";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Italic(Italic {
                         nodes: vec![
                             Node::Text(Text {
-                                value: "item".to_string(),
-                                position: LineSpan { start: 6, end: 6 }
+                                value: "italic".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
                             }),
                             Node::Whitespace(Whitespace {
-                                position: LineSpan { start: 6, end: 6 }
+                                position: LineSpan { start: 1, end: 1 }
                             }),
                             Node::Text(Text {
-                                value: "1.3".to_string(),
-                                position: LineSpan { start: 6, end: 6 }
+                                value: "text".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
                             }),
                         ],
-                        children: vec![],
-                        position: LineSpan { start: 6, end: 6 }
-                    }),
-                ],
-                position: LineSpan { start: 1, end: 6 }
-            }),],
-        )
+                        position: LineSpan { start: 1, end: 1 }
+                    })],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_unclosed_italic_marker() {
+            let input = "*italic text";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "*".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "italic".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_unmatched_italic_marker() {
+            let input = "italic text*";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "italic".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "*".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_closed_bold_marker() {
+            let input = "**bold text**";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![Node::Bold(Bold {
+                        nodes: vec![
+                            Node::Text(Text {
+                                value: "bold".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Whitespace(Whitespace {
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                            Node::Text(Text {
+                                value: "text".to_string(),
+                                position: LineSpan { start: 1, end: 1 }
+                            }),
+                        ],
+                        position: LineSpan { start: 1, end: 1 }
+                    })],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_unclosed_bold_marker() {
+            let input = "**bold text";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "**".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "bold".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
     }
 
-    #[test]
-    fn test_unordered_list_started_with_nested_content() {
-        let input = " - item1";
-        let nodes = build_tree(input);
+    mod paragraph_tests {
+        use super::*;
+        use pretty_assertions::assert_eq;
 
-        assert_eq!(
-            nodes,
-            vec![Node::Paragraph(Paragraph {
-                nodes: vec![
-                    Node::Whitespace(Whitespace {
+        #[test]
+        fn test_plain_text() {
+            let input = "normal text";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![Node::Paragraph(Paragraph {
+                    nodes: vec![
+                        Node::Text(Text {
+                            value: "normal".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Whitespace(Whitespace {
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                        Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),
+                    ],
+                    position: LineSpan { start: 1, end: 1 }
+                },)],
+            )
+        }
+
+        #[test]
+        fn test_break() {
+            let input = "normal\n\ntext";
+            let nodes = build_tree(input);
+
+            assert_eq!(
+                nodes,
+                vec![
+                    Node::Paragraph(Paragraph {
+                        nodes: vec![Node::Text(Text {
+                            value: "normal".to_string(),
+                            position: LineSpan { start: 1, end: 1 }
+                        }),],
                         position: LineSpan { start: 1, end: 1 }
+                    },),
+                    Node::Eol(Eol {
+                        position: LineSpan { start: 2, end: 2 }
                     }),
-                    Node::Text(Text {
-                        value: "- ".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
-                    Node::Text(Text {
-                        value: "item1".to_string(),
-                        position: LineSpan { start: 1, end: 1 }
-                    }),
+                    Node::Paragraph(Paragraph {
+                        nodes: vec![Node::Text(Text {
+                            value: "text".to_string(),
+                            position: LineSpan { start: 3, end: 3 }
+                        }),],
+                        position: LineSpan { start: 3, end: 3 }
+                    },),
                 ],
-                position: LineSpan { start: 1, end: 1 }
-            },)],
-        )
-    }
-
-    #[test]
-    fn test_fn_is_next_list() {
-        // not nested
-        let input = "- item1";
-        let mut tokens = lex(input);
-        let stream = TokenStream::new(&mut tokens);
-        let next_nest = stream.is_next_list();
-        assert_eq!(next_nest, Some(0));
-
-        // nested once
-        let input = " - item1";
-        let mut tokens = lex(input);
-        let stream = TokenStream::new(&mut tokens);
-        let next_nest = stream.is_next_list();
-        assert_eq!(next_nest, Some(1));
+            )
+        }
     }
 }
